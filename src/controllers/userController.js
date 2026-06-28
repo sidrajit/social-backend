@@ -1,7 +1,7 @@
 import { ResponseMessage } from "../common/responseMessage.js";
-import { signUpValidation } from "../validations/userValidation.js";
+import { signUpValidation, loginValidation } from "../validations/userValidation.js";
 import User from "../models/userModel.js";
-import ApiResponse from "../common/apiResponse.js";
+import { ROLE } from "../common/constants.js";
 
 export const signUp = async (req, res, next) => {
     try {
@@ -15,6 +15,39 @@ export const signUp = async (req, res, next) => {
             }
         }
     } catch (error) {
-        return new ApiResponse(400, null, error).send(res);
+        next(error)
+    }
+}
+
+export const login = async (req, res, next) => {
+    try {
+        const reqEmail = (req.body.email);
+        const reqPassword = req.body.password;
+
+
+        if (!reqEmail) {
+            throw ResponseMessage.VALIDATION.EMAIL_REQUIRED;
+        }
+
+        if (!reqPassword) {
+            throw ResponseMessage.VALIDATION.PASSWORD_REQUIRED;
+        }
+
+        await loginValidation.validateAsync(req.body);
+
+        // check email is already valid or not
+        const user = await User.findOne({ email: reqEmail, role: ROLE.USER, isEmailVerified: true, isDeleted: false }).lean();
+
+        if (!user) {
+            throw ResponseMessage.USER_ERROR.USER_NOT_FOUND;
+        }
+
+        if (user.email === reqEmail && user.password === req.body.password) {
+            res.success(ResponseMessage.USER.LOGIN_SUCCESS, user);
+        } else {
+            throw ResponseMessage.USER_ERROR.INVALID_LOGIN_DETAILS;
+        }
+    } catch (error) {
+        next(error)
     }
 }
